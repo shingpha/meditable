@@ -1,16 +1,16 @@
 {
-  "name": "@geekeditor/meditable",
-  "version": "0.2.0",
-  "description": "A WYSIWYG markdown editor for web browser applications",
+  "name": "@shingpha/meditable",
+  "version": "0.2.1",
+  "description": "A WYSIWYG markdown editor for web browser applications (MDEditor 自定义内核：源码级补丁 Fix 1-21)",
   "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.js",
   "types": "./dist/types/index.d.ts",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/geekeditor/meditable.git"
+    "url": "git+https://github.com/shingpha/meditable.git"
   },
-  "bugs": "https://github.com/geekeditor/meditable/issues",
-  "homepage": "https://github.com/geekeditor/meditable#readme",
+  "bugs": "https://github.com/shingpha/meditable/issues",
+  "homepage": "https://github.com/shingpha/meditable#readme",
   "scripts": {
     "lint": "eslint --ext .js,.ts ./",
     "test": "jest",
@@ -23,7 +23,7 @@
   "sideEffects": false,
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./dist/types/index.d.ts",
       "import": "./dist/esm/index.js",
       "require": "./dist/cjs/index.js"
     },
