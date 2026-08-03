@@ -12,7 +12,8 @@ export const DEFAULT_ITEMS: string[] = [
 ]
 
 export const BLACKLIST_BLOCK_TYPES: ReadonlySet<string> = new Set([
-  'code_block', 'math_block', 'diagram_block', 'html_block', 'frontmatter',
+  // Fix 9: 黑名单用连字符命名，与块渲染器真实 static type 一致（'code-block' 等）
+  'code-block', 'math-block', 'diagram-block', 'html-block', 'frontmatter',
 ])
 
 export interface CustomButtonItem {

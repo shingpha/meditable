@@ -177,7 +177,8 @@ const tokenizerFac = (
     if (inChunk) continue;
 
     // emoji | inline_code | del | inline_math
-    const chunks = ["inline_code", "del", "emoji", "inline_math"];
+    // Fix 20: 实体引用 !(Text)<type/id>
+    const chunks = ["inline_code", "del", "emoji", "inline_math", "entity_reference"];
 
     for (const rule of chunks) {
       const to = inlineRules[rule].exec(src);
@@ -226,6 +227,15 @@ const tokenizerFac = (
             ),
             backlash: to[3],
           });
+          if (rule === "entity_reference") {
+            const ent = tokens[tokens.length - 1];
+            const ref = to[2] || "";
+            const parts = ref.split("/");
+            ent.label = to[1] || "";
+            ent.ref = ref;
+            ent.entityType = parts[0] || "";
+            ent.entityId = parts[1] || "";
+          }
         }
         src = src.substring(to[0].length);
         pos = pos + to[0].length;

@@ -5,15 +5,14 @@ export function handleBackspaceInParagraph() {
   const renderer = this as MEBlockRendererInstance;
   const {block} = renderer;
   const previousContentBlock = block.previousContentInContext();
+  // Fix 21: 文档首个块且光标已在最前端时，Backspace 不应删除当前块或合并后续块
+  // （常规预期：无操作）。若当前块或前一块包含实体引用节点，合并/重转换会丢失
+  // 实体，同样不执行破坏式合并，保留实体。
+  const hasEntityRef = (b: any) => !!(b && b.renderer && b.renderer.datas && b.renderer.datas.some((t: any) => t.type === 'entity_reference'));
   if (!previousContentBlock) {
-
-    const nextContentBlock = block.nextContentInContext();
-    if(nextContentBlock) {
-        block.remove();
-        nextContentBlock.renderer.setCursor();
-        return true;
-    }
-
+    return false;
+  }
+  if (hasEntityRef(block) || hasEntityRef(previousContentBlock)) {
     return false;
   }
   const { text: oldText } = previousContentBlock.renderer;

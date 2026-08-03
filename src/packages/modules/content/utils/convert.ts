@@ -7,7 +7,7 @@ const INLINE_UPDATE_FRAGMENTS = [
   '(?:^|\n) {0,3}(\\d{1,9}(?:\\.|\\)) {1,4})', // Order list
   '(?:^|\n) {0,3}(#{1,6})(?=\\s{1,}|$)', // ATX headings
   '^(?:[\\s\\S]+?)\\n {0,3}(\\={3,}|\\-{3,})(?= {1,}|$)', // Setext headings **match from beginning**
-  '(?:^|\n) {0,3}(>).+', // Block quote
+  '(?:^|\n) {0,3}(>)(?= ).+', // Block quote (Fix 8: 裸 > 不触发，需紧跟空格)
   '^( {4,})', // Indent code **match from beginning**
   // '^(\\[\\^[^\\^\\[\\]\\s]+?(?<!\\\\)\\]: )', // Footnote **match from beginning**
   '(?:^|\n) {0,3}((?:\\* *\\* *\\*|- *- *-|_ *_ *_)[ \\*\\-\\_]*)(?=\n|$)' // Thematic break

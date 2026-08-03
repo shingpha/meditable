@@ -430,6 +430,8 @@ export default class MEBlockRenderer extends MEEventHandler {
             needRemovedBlock = needRemovedBlock.parent
         }
 
+        // Fix 7: 在真正执行合并前 preventDefault，抑制浏览器原生 Delete（否则会再删一次光标处字符，吞掉第二个块首字符）
+        event.preventDefault();
         const text = oldText + nextBlock.renderer.text;
         this.render({ text, cursor: { focus: start, anchor: start, focusBlock: this.block, anchorBlock: this.block } })
         this.setCursor({ focus: start })

@@ -17,11 +17,19 @@ export default class MEMathBlockRenderer extends MEHtmlBlockRenderer {
         if(this.mathMap2.has(key)) {
             mathHtml = this.mathMap2.get(key);
         } else {
+            // Fix 1: 块公式优先用 KaTeX displayMode 渲染（浏览器稳定、同步），失败再回退 MathJax
             try {
-                mathHtml = await tex2svgPromise(math);
+                mathHtml = katex.renderToString(math, {
+                    displayMode: true,
+                    throwOnError: false,
+                });
                 this.mathMap2.set(math, mathHtml)
             } catch (error) {
-                
+                try {
+                    mathHtml = await tex2svgPromise(math);
+                    this.mathMap2.set(math, mathHtml)
+                } catch (e) {
+                }
             }
         }
         return `<${this.tagName} class="${this.type}">${mathHtml||''}</${this.tagName}>`
@@ -41,8 +49,10 @@ export default class MEMathBlockRenderer extends MEHtmlBlockRenderer {
             mathHtml = mathMap.get(key);
         } else {
             try {
+                // Fix 1: 块级公式用 displayMode: true
                 mathHtml = katex.renderToString(math, {
-                    displayMode: false,
+                    displayMode: true,
+                    throwOnError: false,
                 });
                 mathMap.set(key, mathHtml);
             } catch (err) {

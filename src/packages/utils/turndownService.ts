@@ -1,6 +1,8 @@
 
 import { identity } from "./utils";
-const turndownPluginGfm = require("joplin-turndown-plugin-gfm");
+// Fix 5: 源码统一用 ESM import（rollup 出 esm、webpack 出 cjs 都能正确解析）。
+// 原 require 混用在 ESM 产物里会导致浏览器 require is not defined。
+import * as turndownPluginGfm from "joplin-turndown-plugin-gfm";
 import TurndownService from "turndown";
 
 export const addPluginAddRules = (turndownService, keeps) => {

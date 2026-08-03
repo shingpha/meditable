@@ -92,6 +92,48 @@ export default class MEEditable extends MEModule {
                 }
             }
         }, true);
+        // Fix 2: 点击编辑器内、位于 .me-editable 之外的空白死区（标题上方/底部
+        // padding 区）时，把光标吸附到「按点击 y 坐标最近的 .me-editable」对应的块。
+        // 否则原生光标会落在根 contenteditable，导致方向键被 content/index.js 丢弃。
+        // 监听绑在 document（捕获阶段），确保点击落在 holder 之外的 padding 死区
+        // 时也能拦截；使用库自带 API（block.renderer.setCursor）写入光标，不破坏内部状态机。
+        this.mutableListeners.on(this._document, "mousedown", (event: any) => {
+            const me = event;
+            const target = me.target;
+            if (!target) return;
+            const editorArea = target.closest(".meui-editor") || this._holder;
+            if (!editorArea.contains(target)) return;
+            const inEditable = (node: any) => {
+                let n = node;
+                while (n && n !== editorArea) {
+                    if (n.nodeType === 1 && n.classList && n.classList.contains("me-editable")) return true;
+                    n = n.parentNode;
+                }
+                return false;
+            };
+            if (inEditable(target)) return;
+            const editables = Array.from(this._holder.querySelectorAll(".me-editable")) as any[];
+            if (!editables.length) return;
+            me.preventDefault();
+            const y = me.clientY;
+            let targetEl = editables[0];
+            for (const el of editables) {
+                const r = el.getBoundingClientRect();
+                if (y >= r.top) targetEl = el;
+            }
+            const last = editables[editables.length - 1];
+            const rect = targetEl.getBoundingClientRect();
+            const atEnd = targetEl === last && y > rect.top + rect.height / 2;
+            setTimeout(() => {
+                try {
+                    const blockEl = targetEl.closest(".me-block");
+                    const bi = blockEl && (blockEl as any).BLOCK_INSTANCE;
+                    if (bi && bi.renderer && bi.renderer.setCursor) {
+                        bi.renderer.setCursor({ focus: { offset: atEnd ? bi.renderer.text.length : 0 }, scrollToView: false });
+                    }
+                } catch (e) { /* noop */ }
+            }, 0);
+        }, true);
         this.mutableListeners.on(this._holder, "mousemove", (event)=>{
             const mouseEvent = event as MouseEvent;
             this._holder.classList.toggle(CLASS_NAMES.ME_CONTENT__CONTROLLING, mouseEvent.ctrlKey||mouseEvent.metaKey)

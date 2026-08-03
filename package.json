@@ -92,6 +92,7 @@
     "js-md5": "^0.8.3",
     "katex": "^0.16.9",
     "mathjax": "^3.2.2",
+    "mathml-to-latex": "^1.8.0",
     "mermaid": "^10.6.0",
     "plantuml-encoder": "^1.4.0",
     "snapsvg-cjs": "^0.0.6",

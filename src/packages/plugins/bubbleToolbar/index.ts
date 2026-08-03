@@ -132,8 +132,15 @@ export default class MEPluginBubbleToolbar extends MEPluginBase {
     }
 
     const anchorBlock = content.queryBlock(cursor.anchorBlockId)
-    if (anchorBlock && BLACKLIST_BLOCK_TYPES.has(anchorBlock.type)) {
-      return this.toolbar.hide()
+    // Fix 9: 沿父链向上找，任一祖先命中黑名单即隐藏（复杂块内层可编辑块不会直接命中）
+    if (anchorBlock) {
+      let blk = anchorBlock
+      while (blk) {
+        if (BLACKLIST_BLOCK_TYPES.has(blk.type)) {
+          return this.toolbar.hide()
+        }
+        blk = blk.parent
+      }
     }
 
     let rect: DOMRect

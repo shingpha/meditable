@@ -33,6 +33,7 @@ import MEHtmlImg from "./nodes/htmlImg";
 import MEImage from "./nodes/image";
 import MEInlineMath from "./nodes/inlineMath";
 import MEMultipleMath from "./nodes/multipleMath";
+import MEEntityReference from "./nodes/entityReference";
 
 MENode.register(MEStrong)
 MENode.register(MEEm)
@@ -67,6 +68,7 @@ MENode.register(MEHtmlImg)
 MENode.register(MEImage)
 MENode.register(MEInlineMath)
 MENode.register(MEMultipleMath)
+MENode.register(MEEntityReference)
 
 export function createNode(instance: MEBlockRendererInstance, type: MENodeType) {
     const Constructable = MENode.nodes[type] || MENode;

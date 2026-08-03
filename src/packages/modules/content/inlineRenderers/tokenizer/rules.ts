@@ -46,6 +46,8 @@ export const gfmRules = {
 
 // Markdown extensions (not belongs to GFM and Commonmark)
 export const inlineExtensionRules = {
+  // Fix 20: 实体引用 !(Text)<type/id>；尖括号 <type/id> 与图片 ![](圆括号) 互不命中。
+  entity_reference: /^!\(([^)]*?)\)<([^>]+)>/,
   inline_math: /^(\$)([^\$]*?[^\$\\])(\\*)\1(?!\1)/,
   // This is not the best regexp, because it not support `2^2\\^`.
   superscript: /^(\^)((?:[^\^\s]|(?<=\\)\1|(?<=\\) )+?)(?<!\\)\1(?!\1)/,

@@ -1,5 +1,110 @@
 import sanitize, { PREVIEW_DOMPURIFY_CONFIG } from "./dompurify";
 import { PARAGRAPH_TYPES } from "./nodeTypes";
+// Fix 10: 粘贴 Word 片段前预处理（style→语义标签、MathML→LaTeX）。详见 patch-meditable.mjs
+import { MathMLToLaTeX } from "mathml-to-latex";
+
+// Fix 10: 粘贴 Word 片段前预处理（style→语义标签、MathML→LaTeX、Word 标题/列表）
+function preprocessWordPaste(html: string): string {
+    if (!html || typeof html !== "string") return html;
+    let doc: Document;
+    try {
+        doc = new DOMParser().parseFromString("<body>" + html + "</body>", "text/html");
+    } catch (e) {
+        return html;
+    }
+    const body = doc.body || (doc.documentElement as any);
+    if (!body) return html;
+    // 1) 内联样式 → 语义标签（加粗 / 斜体 / 下划线 / 删除线）
+    const all: any[] = Array.from(body.querySelectorAll("*"));
+    for (const el of all) {
+        const style = (el as any).getAttribute && (el as any).getAttribute("style");
+        if (!style) continue;
+        const fw = /font-weight\s*:\s*(bold|[6-9]00|1[0-9]00)/i.test(style);
+        const fi = /font-style\s*:\s*italic/i.test(style);
+        const fu = /text-decoration\s*:\s*underline/i.test(style);
+        const fs = /text-decoration\s*:\s*line-through/i.test(style);
+        if (!fw && !fi && !fu && !fs) continue;
+        const wrappers: string[] = [];
+        if (fw && !(el as any).closest("strong,b")) wrappers.push("strong");
+        if (fi && !(el as any).closest("em,i")) wrappers.push("em");
+        if (fu && !(el as any).closest("u")) wrappers.push("u");
+        if (fs && !(el as any).closest("s,del,strike")) wrappers.push("s");
+        if (!wrappers.length) continue;
+        let outer: any = null;
+        let inner: any = null;
+        for (let k = wrappers.length - 1; k >= 0; k--) {
+            const w = doc.createElement(wrappers[k]);
+            if (outer) w.appendChild(outer);
+            outer = w;
+            if (!inner) inner = w;
+        }
+        while (el.firstChild) inner.appendChild(el.firstChild);
+        el.replaceWith(outer);
+    }
+    // 1.5) Word 标题：<p class="MsoHeadingN"> / <p style="mso-outline-level:N"> → <hN>
+    const topParas: any[] = Array.from(body.children).filter((c: any) => c.tagName === "P");
+    for (const p of topParas) {
+        if (/^H[1-6]$/.test(p.tagName)) continue;
+        const cls = (p as any).getAttribute("class") || "";
+        const style = (p as any).getAttribute("style") || "";
+        const styleName = (style.match(/mso-style-name\s*:\s*([^;"]+)/i) || [])[1] || "";
+        let level = 0;
+        let m = /MsoHeading\s*(\d)/i.exec(cls);
+        if (m) level = parseInt(m[1], 10);
+        if (!level) { m = /mso-outline-level\s*:\s*(\d)/i.exec(style); if (m) level = parseInt(m[1], 10); }
+        if (!level) { m = /(?:heading|标题)\s*(\d)/i.exec(styleName); if (m) level = parseInt(m[1], 10); }
+        if (level >= 1 && level <= 6) {
+            const h = doc.createElement("h" + level);
+            while (p.firstChild) h.appendChild(p.firstChild);
+            p.replaceWith(h);
+        }
+    }
+    // 1.6) Word 列表：连续 <p style="mso-list:..."> 归并为 <ul>/<ol> + <li>
+    const kids = Array.from(body.children);
+    let li = 0;
+    while (li < kids.length) {
+        const p: any = kids[li];
+        const pstyle = (p.getAttribute && p.getAttribute("style")) || "";
+        const isList = p.tagName === "P" && !/^H[1-6]$/.test(p.tagName) && /mso-list\s*:/i.test(pstyle);
+        if (!isList) { li++; continue; }
+        const firstOrdered = /mso-list-type\s*:\s*number/i.test(pstyle) ||
+            (/mso-list-format/i.test(pstyle) && /%1\.|\[Number\]/i.test(pstyle));
+        const group: any[] = [];
+        let lj = li;
+        while (lj < kids.length) {
+            const q: any = kids[lj];
+            const qst = (q.getAttribute && q.getAttribute("style")) || "";
+            if (!(q.tagName === "P" && /mso-list\s*:/i.test(qst))) break;
+            const qOrdered = /mso-list-type\s*:\s*number/i.test(qst) ||
+                (/mso-list-format/i.test(qst) && /%1\.|\[Number\]/i.test(qst));
+            if (group.length && qOrdered !== firstOrdered) break;
+            group.push(q); lj++;
+        }
+        const listEl = doc.createElement(firstOrdered ? "ol" : "ul");
+        for (const q of group) {
+            const item = doc.createElement("li");
+            Array.from(q.querySelectorAll("span")).forEach((sp: any) => {
+                if (/mso-list\s*:\s*Ignore/i.test((sp.getAttribute("style") || ""))) sp.remove();
+            });
+            while (q.firstChild) item.appendChild(q.firstChild);
+            listEl.appendChild(item);
+        }
+        p.replaceWith(listEl);
+        li = lj;
+    }
+    // 2) MathML → LaTeX（$...$ 行内 / $$...$$ 块级）
+    const maths: any[] = Array.from(body.querySelectorAll("math"));
+    for (const m of maths) {
+        let latex = "";
+        try { latex = MathMLToLaTeX.convert((m as any).outerHTML); } catch (e) { latex = ""; }
+        if (!latex) { m.replaceWith(doc.createTextNode(" ")); continue; }
+        const isBlock = (m as any).hasAttribute("display") ||
+            /display\s*:\s*(block|true)/i.test((m as any).getAttribute("style") || "") ||
+            !!(m as any).querySelector("mstyle[displaystyle=\"true\"]");
+        m.replaceWith(doc.createTextNode(isBlock ? "$$" + latex + "$$" : "$" + latex + "$"));
+    }
+    return body.innerHTML;
+}
 
 const TIMEOUT = 1500;
 
@@ -70,6 +175,8 @@ export const normalizePastedHTML = async function (html) {
         }
     }
 
+    // Fix 10: 粘贴 Word 片段前，先把内联 style 转语义标签、MathML 转 LaTeX
+    html = preprocessWordPaste(html);
     // Prevent XSS and sanitize HTML.
     const sanitizedHtml = sanitize(html, PREVIEW_DOMPURIFY_CONFIG);
     const tempWrapper = document.createElement("div");

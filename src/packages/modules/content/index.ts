@@ -65,7 +65,7 @@ class MEContent extends MEBlock {
                 })
             }
 
-            console.log(needBlurBlocks, needActiveBlocks);
+            // Fix 3: 移除库自带的调试 console.log（focusedBlock setter 内），开发期刷屏且与业务无关
 
             if (blurBlock) {
                 blurBlock.focused = false;

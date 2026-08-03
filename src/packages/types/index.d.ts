@@ -169,7 +169,8 @@ export type MENodeType =
     'footnote_identifier' |
     'reference_definition' |
     'reference_image' |
-    'reference_link'
+    'reference_link' |
+    'entity_reference'
 export type MENodeData = {
     type: MENodeType;
     content?: string;
@@ -205,6 +206,9 @@ export type MENodeData = {
     alt?: string;
     range: { start: number; end: number }
     children?: MENodeData[]
+    ref?: string;
+    entityType?: string;
+    entityId?: string;
 }
 
 export interface MENodeInstance extends MEModuleInstance {
