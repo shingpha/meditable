@@ -1,0 +1,220 @@
+/*!
+ * meditable v0.2.1
+ * Github: https://github.com/geekeditor/meditable
+ * (c) 2023-2026 montisan <imontisan@gmail.com>
+ * Released under the MIT License.
+ */
+'use strict';
+
+var utils = require('../../utils/utils.js');
+
+function removeBlockOrContent(block) {
+    if (/(table-td|table-th)$/.test(block.type)) {
+        block.renderer.render({ text: "" });
+    }
+    else if (/table-tr|table-thead|table-tbody/.test(block.type)) {
+        block.children.forEach((child) => {
+            removeBlockOrContent(child);
+        });
+    }
+    else {
+        block.remove();
+    }
+}
+function cutBlocks(startBlock, startOffset, endBlock, endOffset) {
+    let nextBlock = startBlock.nextInContext();
+    while (nextBlock) {
+        if (nextBlock.id === endBlock.id || nextBlock.contains(endBlock)) {
+            break;
+        }
+        const toRemoveBlock = nextBlock;
+        nextBlock = nextBlock.nextInContext();
+        removeBlockOrContent(toRemoveBlock);
+    }
+    if (nextBlock) {
+        while (nextBlock.id !== endBlock.id) {
+            let child = nextBlock.firstChild;
+            while (child) {
+                if (child.id === endBlock.id || child.contains(endBlock)) {
+                    nextBlock = child;
+                    break;
+                }
+                const toRemoveBlock = child;
+                child = child.next;
+                removeBlockOrContent(toRemoveBlock);
+            }
+        }
+    }
+    const { text: startText } = startBlock.renderer;
+    const { text: endText } = endBlock.renderer;
+    const text = startText.substring(0, startOffset) + (!/language|table-td|table-th/.test(endBlock.type) ? endText.substring(endOffset) : "");
+    const focus = { offset: startOffset };
+    if (/language|table-td|table-th/.test(endBlock.type)) {
+        const text = endText.substring(endOffset);
+        endBlock.renderer.render({ text });
+    }
+    else {
+        let toRemoveBlock = endBlock;
+        while (toRemoveBlock.isOnlyChild && toRemoveBlock.parent && !toRemoveBlock.parent.isRoot) {
+            toRemoveBlock = toRemoveBlock.parent;
+        }
+        removeBlockOrContent(toRemoveBlock);
+    }
+    if (/language/.test(startBlock.type)) {
+        const data = {
+            id: utils.generateId(),
+            type: "paragraph",
+            text
+        };
+        startBlock.renderer.anchor.replaceWith({ data, needToFocus: true, focus });
+    }
+    else {
+        startBlock.renderer.render({ text, cursor: { anchor: focus, focus, focusBlock: startBlock, anchorBlock: startBlock } });
+        startBlock.renderer.setCursor({ focus });
+    }
+}
+function copyBlocks(startBlock, startOffset, endBlock, endOffset) {
+    const { text: startText } = startBlock.renderer;
+    const { text: endText } = endBlock.renderer;
+    const text = startText.substring(startOffset);
+    let datas = [{
+            ...utils.deepCopy(startBlock.data),
+            text
+        }];
+    if (/code$/.test(startBlock.type)) {
+        const previousBlock = startBlock.previous;
+        if (previousBlock && previousBlock.type === "language") {
+            datas.unshift(utils.deepCopy(previousBlock.data));
+        }
+    }
+    let nextBlock = startBlock;
+    if (!nextBlock.next) {
+        let parent = nextBlock.parent;
+        const meta = parent.renderer.meta;
+        datas = [{
+                id: parent.id,
+                type: parent.type,
+                meta: meta ? utils.deepCopy(meta) : meta,
+                children: datas
+            }];
+        while (!parent.next) {
+            parent = parent.parent;
+            const meta = parent.renderer.meta;
+            datas = [{
+                    id: parent.id,
+                    type: parent.type,
+                    meta: meta ? utils.deepCopy(meta) : meta,
+                    children: datas
+                }];
+        }
+        nextBlock = parent.next;
+    }
+    else {
+        nextBlock = nextBlock.next;
+    }
+    while (nextBlock && nextBlock.id !== endBlock.id && !nextBlock.contains(endBlock)) {
+        datas.push(utils.deepCopy(nextBlock.data));
+        if (!nextBlock.next) {
+            let parent = nextBlock.parent;
+            const meta = parent.renderer.meta;
+            datas = [{
+                    id: parent.id,
+                    type: parent.type,
+                    meta: meta ? utils.deepCopy(meta) : meta,
+                    children: datas
+                }];
+            while (!parent.next) {
+                parent = parent.parent;
+                const meta = parent.renderer.meta;
+                datas = [{
+                        id: parent.id,
+                        type: parent.type,
+                        meta: meta ? utils.deepCopy(meta) : meta,
+                        children: datas
+                    }];
+            }
+            nextBlock = parent.next;
+        }
+        else {
+            nextBlock = nextBlock.next;
+        }
+    }
+    let head = datas;
+    if (nextBlock) {
+        const ancestors = nextBlock.getCommonAncestors(startBlock);
+        if (ancestors.length) {
+            const targetAncestor = ancestors.find((a) => /table|bullet-list|order-list|code-block|task-list/.test(a.type));
+            if (targetAncestor && targetAncestor.contains(nextBlock)) {
+                let parent = nextBlock.parent;
+                while (!parent.isRoot && parent.id !== targetAncestor.id) {
+                    const meta = parent.renderer.meta;
+                    head = [{
+                            id: parent.id,
+                            type: parent.type,
+                            meta: meta ? utils.deepCopy(meta) : meta,
+                            children: head
+                        }];
+                    parent = parent.parent;
+                }
+                const meta = parent.renderer.meta;
+                head = [{
+                        id: parent.id,
+                        type: parent.type,
+                        meta: meta ? utils.deepCopy(meta) : meta,
+                        children: head
+                    }];
+            }
+        }
+        while (nextBlock.id !== endBlock.id) {
+            const meta = nextBlock.renderer.meta;
+            const nextData = {
+                id: nextBlock.id,
+                type: nextBlock.type,
+                meta: meta ? utils.deepCopy(meta) : meta,
+                children: []
+            };
+            datas.push(nextData);
+            datas = nextData.children;
+            let child = nextBlock.firstChild;
+            while (child) {
+                if (child.id === endBlock.id || child.contains(endBlock)) {
+                    nextBlock = child;
+                    break;
+                }
+                const toAddBlock = child;
+                child = child.next;
+                datas.push(utils.deepCopy(toAddBlock.data));
+            }
+        }
+        const newEndText = endText.substring(0, endOffset);
+        datas.push({
+            ...utils.deepCopy(endBlock.data),
+            text: newEndText
+        });
+        if (/language/.test(endBlock.type)) {
+            nextBlock = endBlock.next;
+            if (nextBlock && nextBlock.type === "code") {
+                datas.push({
+                    id: nextBlock.id,
+                    type: "code",
+                    meta: {
+                        lang: newEndText,
+                    },
+                    text: ""
+                });
+            }
+        }
+        else if ((/table-td|table-th/.test(endBlock.type))) {
+            while ((nextBlock = endBlock.next)) {
+                datas.push({
+                    ...utils.deepCopy(nextBlock.data),
+                    text: ""
+                });
+            }
+        }
+    }
+    return head;
+}
+
+exports.copyBlocks = copyBlocks;
+exports.cutBlocks = cutBlocks;

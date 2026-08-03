@@ -1,0 +1,62 @@
+/*!
+ * meditable v0.2.1
+ * Github: https://github.com/geekeditor/meditable
+ * (c) 2023-2026 montisan <imontisan@gmail.com>
+ * Released under the MIT License.
+ */
+'use strict';
+
+var node = require('./node.js');
+var classNames = require('../../../../utils/classNames.js');
+var emoji = require('../../../../utils/emoji.js');
+
+class MEEmoji extends node {
+    static type = "emoji";
+    static async staticRender({ data }) {
+        const { content, marker, raw } = data;
+        const validation = emoji.validEmoji(content);
+        return validation.emoji;
+    }
+    get dirty() {
+        const raw = this.data?.raw;
+        if (raw !== this.nodes.el.firstChild?.textContent) {
+            return true;
+        }
+        return false;
+    }
+    renderSelf(data) {
+        const { content, marker, raw } = data;
+        const validation = emoji.validEmoji(content);
+        const { start, end } = data.range;
+        const dataset = {
+            start: start + marker.length,
+            end: end - marker.length,
+        };
+        if (!this.nodes.el) {
+            this.nodes.el = this.make("span", [classNames.CLASS_NAMES.ME_NODE, classNames.CLASS_NAMES.ME_EMOJI]);
+            this.nodes.el.innerHTML = `<span class="${classNames.CLASS_NAMES.ME_MARKER}" spellcheck="false">`;
+            this.nodes.el.dataset.nodeType = this.type;
+            const preview = this.make('span', [classNames.CLASS_NAMES.ME_INLINE_RENDER], {
+                contenteditable: "false",
+                spellcheck: "false",
+            }, dataset);
+            this.nodes.el.appendChild(preview);
+        }
+        else {
+            const el = this.nodes.el.lastElementChild;
+            for (const key in dataset) {
+                if (Object.prototype.hasOwnProperty.call(dataset, key)) {
+                    el.dataset[key] = dataset[key];
+                }
+            }
+        }
+        if (validation && validation.emoji !== this.nodes.el.lastChild.textContent) {
+            this.nodes.el.lastChild.textContent = validation.emoji;
+        }
+        if (raw !== this.nodes.el.firstChild.textContent) {
+            this.nodes.el.firstChild.textContent = raw;
+        }
+    }
+}
+
+module.exports = MEEmoji;

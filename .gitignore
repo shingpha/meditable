@@ -1,4 +1,5 @@
 
 node_modules
-dist
+# dist 已构建产物随仓库发布（git 依赖安装时不跑 build，需随源码携带）
+# dist
 .worktrees
