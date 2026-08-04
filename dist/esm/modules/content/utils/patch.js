@@ -142,6 +142,12 @@ function blockPatch(data, cursor = null, BlockClass) {
         // if(moved) {
         // }
         const seq = lis(source);
+        // 当被 patch 的块区间位于文档末尾时，anchor 为 null。
+        // 下方循环是「逆序」遍历的，若用 insertBefore(el, null)（即 append），
+        // 会导致新块以「逆序」追加到 DOM，渲染顺序整体颠倒（数据模型本身正确）。
+        // 修复：anchor 为空时改为「前插」（insertBefore(el, parentEl.firstChild)），
+        // 逆序遍历 + 前插 -> 最终 DOM 顺序正确；anchor 非空（文档中部插入）时行为不变。
+        const refEl = anchor ?? this.nodes.holder.firstChild;
         let s = 0;
         for (let j = count - 1; j >= 0; j--) {
             const index = j + newStart;
@@ -150,14 +156,14 @@ function blockPatch(data, cursor = null, BlockClass) {
                 const newBlock = new BlockClass(this.instance);
                 newBlock.render({ data: newBlockData, parent: this });
                 const parentEl = this.nodes.holder;
-                parentEl.insertBefore(newBlock.nodes.el, anchor);
+                parentEl.insertBefore(newBlock.nodes.el, refEl);
                 newChildren[index] = newBlock;
             }
             else if (j !== seq[s]) {
                 let newBlock = newChildren[index];
                 const parentEl = this.nodes.holder;
                 parentEl.removeChild(newBlock.nodes.el);
-                parentEl.insertBefore(newBlock.nodes.el, anchor);
+                parentEl.insertBefore(newBlock.nodes.el, refEl);
             }
             else {
                 s++;
